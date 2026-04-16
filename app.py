@@ -2,50 +2,30 @@ import streamlit as st
 import pandas as pd
 import re
 import os
-import time
 from datetime import datetime
 
 st.set_page_config(page_title="AI Resume Analyzer", layout="wide")
-
-# ---------------- SPLASH ----------------
-if "loaded" not in st.session_state:
-    st.session_state.loaded = False
-
-if not st.session_state.loaded:
-    st.markdown("""
-    <div style="text-align:center; padding-top:150px;">
-        <h1>🚀 AI Resume Analyzer</h1>
-        <p>Smart Recruitment Intelligence System</p>
-    </div>
-    """, unsafe_allow_html=True)
-    time.sleep(2)
-    st.session_state.loaded = True
-    st.rerun()
-
-# ---------------- STYLE ----------------
-st.markdown("""
-<style>
-.stButton>button {
-    background-color: #4CAF50;
-    color: white;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------- FILE ----------------
-DATA_FILE = "history.csv"
-if not os.path.exists(DATA_FILE):
-    pd.DataFrame(columns=["Name","Score","Date"]).to_csv(DATA_FILE, index=False)
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("📌 Navigation")
 page = st.sidebar.radio("Go to", ["🏠 Analyzer","📊 Dashboard","🏆 Leaderboard"])
 st.sidebar.success("👩‍💻 Developed by Janeesha Y")
 
-# ---------------- TEXT EXTRACTION ----------------
+# ---------------- STORAGE ----------------
+DATA_FILE = "history.csv"
+if not os.path.exists(DATA_FILE):
+    pd.DataFrame(columns=["Name","Score","Date"]).to_csv(DATA_FILE, index=False)
+
+# ---------------- TEXT EXTRACTION (CLEAN) ----------------
 def extract_text(file):
     try:
-        return file.read().decode("latin-1").lower()
+        content = file.read()
+        text = content.decode("latin-1", errors="ignore")
+
+        # remove pdf garbage like %PDF
+        text = re.sub(r"%PDF.*", "", text)
+
+        return text.lower()
     except:
         return ""
 
@@ -55,7 +35,7 @@ jobs = {
     "Web Developer": ["html","css","javascript","react"],
     "Machine Learning Engineer": ["python","tensorflow","nlp"],
     "Software Developer": ["java","c++","python","algorithms"],
-    "Cybersecurity Analyst": ["network","security","hacking"],
+    "Cybersecurity Analyst": ["network","security"],
     "Cloud Engineer": ["aws","docker","cloud"],
     "Business Analyst": ["excel","communication","analysis"]
 }
@@ -65,19 +45,19 @@ if page == "🏠 Analyzer":
 
     st.title("🚀 AI Resume Analyzer")
 
-    uploaded_files = st.file_uploader("Upload Resume(s)", type=["pdf"], accept_multiple_files=True)
+    files = st.file_uploader("Upload Resume(s)", type=["pdf"], accept_multiple_files=True)
 
-    if uploaded_files:
-
+    if files:
         df_hist = pd.read_csv(DATA_FILE)
         today = str(datetime.now().date())
         results = []
 
-        for file in uploaded_files:
+        for file in files:
 
             text = extract_text(file)
 
-            name = text.split("\n")[0] if text else "Candidate"
+            # Extract details
+            name = text.split("\n")[0].strip() if text else "Candidate"
 
             email = re.findall(r"[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+", text)
             email = email[0] if email else "Not Found"
@@ -89,7 +69,7 @@ if page == "🏠 Analyzer":
             st.write(f"📧 {email}")
             st.write(f"📞 {phone}")
 
-            # SIMPLE MATCHING
+            # Skill Matching
             scores = {}
             for role, skills in jobs.items():
                 match = sum(1 for skill in skills if skill in text)
@@ -99,7 +79,6 @@ if page == "🏠 Analyzer":
             best_score = scores[best_role] * 100
 
             rating = round(best_score / 20, 2)
-
             results.append((name, best_score))
 
             st.write(f"🎯 Role: {best_role}")
@@ -109,8 +88,8 @@ if page == "🏠 Analyzer":
             # Breakdown
             st.subheader("📊 Score Breakdown")
             st.write(f"Skill Match: {round(best_score,2)}")
-            st.write(f"Keyword Strength: {len(text.split())}")
-            st.write("Experience Estimate: Medium")
+            st.write(f"Keyword Count: {len(text.split())}")
+            st.write("Experience Level: Estimated")
 
             # Confidence
             if rating >= 3:
@@ -122,6 +101,7 @@ if page == "🏠 Analyzer":
 
             st.markdown("---")
 
+            # Save history
             df_hist = pd.concat([
                 df_hist,
                 pd.DataFrame([[name, rating, today]], columns=["Name","Score","Date"])
@@ -129,6 +109,7 @@ if page == "🏠 Analyzer":
 
         df_hist.to_csv(DATA_FILE, index=False)
 
+        # Best candidate
         if len(results) > 1:
             best = sorted(results, key=lambda x: x[1], reverse=True)[0]
             st.success(f"🏆 Best Candidate: {best[0]}")
@@ -145,8 +126,6 @@ elif page == "📊 Dashboard":
         st.metric("Top Score", round(df["Score"].max(),2))
 
         st.dataframe(df)
-
-        st.download_button("Download Report", df.to_csv(index=False), "report.csv")
 
 # ================= LEADERBOARD =================
 elif page == "🏆 Leaderboard":
