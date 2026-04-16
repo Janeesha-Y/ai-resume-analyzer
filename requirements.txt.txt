@@ -1,6 +1,6 @@
 streamlit
 pandas
-pypdf==3.17.4
+PyPDF2==2.12.1
 matplotlib
 scikit-learn
 numpy
