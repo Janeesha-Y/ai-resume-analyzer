@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import re
 import os
 import time
@@ -10,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(page_title="AI Resume Analyzer", layout="wide")
 
-# ---------------- SPLASH ----------------
+# ---------------- SPLASH SCREEN ----------------
 if "loaded" not in st.session_state:
     st.session_state.loaded = False
 
@@ -35,7 +34,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- FILE ----------------
+# ---------------- FILE STORAGE ----------------
 DATA_FILE = "history.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Name","Score","Date"]).to_csv(DATA_FILE, index=False)
@@ -45,7 +44,7 @@ st.sidebar.title("📌 Navigation")
 page = st.sidebar.radio("Go to", ["🏠 Analyzer","📊 Dashboard","🏆 Leaderboard"])
 st.sidebar.success("👩‍💻 Developed by Janeesha Y")
 
-# ---------------- SAFE TEXT EXTRACTION ----------------
+# ---------------- TEXT EXTRACTION (SAFE) ----------------
 def extract_text(file):
     try:
         text = file.read().decode("latin-1")
@@ -75,6 +74,7 @@ jobs = pd.DataFrame({
 if page == "🏠 Analyzer":
 
     st.title("🚀 AI Resume Analyzer")
+
     uploaded_files = st.file_uploader("Upload Resume(s)", type=["pdf"], accept_multiple_files=True)
     job_desc = st.text_area("📄 Job Description (Optional)")
 
@@ -102,6 +102,7 @@ if page == "🏠 Analyzer":
             st.write(f"📧 {email}")
             st.write(f"📞 {phone}")
 
+            # MATCHING
             if job_desc:
                 docs = [resume_text, job_desc]
                 tfidf = TfidfVectorizer().fit_transform(docs)
@@ -122,25 +123,18 @@ if page == "🏠 Analyzer":
             results.append((name,best_score))
 
             st.write(f"🎯 Role: {best_role}")
-            st.write(f"Score: {rating}/5")
+            st.write(f"⭐ Score: {rating} / 5")
             st.progress(int(best_score))
 
             st.markdown("---")
 
-            # Graph
-            breakdown = pd.DataFrame({
-                "Category": ["Skill","Content","Experience"],
-                "Score": [best_score*0.6, len(resume_text.split())*0.2, 20]
-            })
+            # SIMPLE SCORE BREAKDOWN
+            st.subheader("📊 Score Breakdown")
+            st.write(f"Skill Score: {round(best_score*0.6,2)}")
+            st.write(f"Content Score: {round(len(resume_text.split())*0.2,2)}")
+            st.write("Experience Score: 20")
 
-            fig, ax = plt.subplots(figsize=(4,2.5))
-            ax.bar(breakdown["Category"], breakdown["Score"])
-            ax.set_xlabel("Criteria")
-            ax.set_ylabel("Score")
-            plt.tight_layout()
-            st.pyplot(fig)
-
-            # Confidence
+            # CONFIDENCE
             if rating >= 3:
                 st.success("Good confidence")
             elif rating >= 2:
@@ -148,7 +142,9 @@ if page == "🏠 Analyzer":
             else:
                 st.warning("Needs improvement")
 
-            # Save
+            st.markdown("---")
+
+            # SAVE
             df_hist = pd.concat([
                 df_hist,
                 pd.DataFrame([[name,rating,today]], columns=["Name","Score","Date"])
@@ -156,11 +152,13 @@ if page == "🏠 Analyzer":
 
         df_hist.to_csv(DATA_FILE,index=False)
 
+        # BEST CANDIDATE
         if len(results)>1:
             df_multi = pd.DataFrame(results, columns=["Name","Score"])
-            st.success(f"🏆 Best Candidate: {df_multi.sort_values(by='Score',ascending=False).iloc[0]['Name']}")
+            top = df_multi.sort_values(by="Score",ascending=False).iloc[0]
+            st.success(f"🏆 Best Candidate: {top['Name']}")
 
-        st.caption(f"⏱ Time: {time.time()-start:.2f}s")
+        st.caption(f"⏱ Analysis Time: {time.time()-start:.2f} sec")
 
 # ================= DASHBOARD =================
 elif page == "📊 Dashboard":
@@ -169,19 +167,13 @@ elif page == "📊 Dashboard":
     df = pd.read_csv(DATA_FILE)
 
     if not df.empty:
+        st.metric("Total Candidates", len(df))
+        st.metric("Average Score", f"{df['Score'].mean():.2f}")
+        st.metric("Top Score", f"{df['Score'].max():.2f}")
 
-        st.metric("Total", len(df))
-        st.metric("Average", f"{df['Score'].mean():.2f}")
+        st.dataframe(df)
 
-        fig, ax = plt.subplots(figsize=(4.5,2.5))
-        ax.bar(df["Name"], df["Score"])
-        ax.set_xlabel("Name")
-        ax.set_ylabel("Score")
-        plt.xticks(rotation=30)
-        plt.tight_layout()
-        st.pyplot(fig)
-
-        st.download_button("Download Report", df.to_csv(index=False), "report.csv")
+        st.download_button("📥 Download Report", df.to_csv(index=False), "report.csv")
 
 # ================= LEADERBOARD =================
 elif page == "🏆 Leaderboard":
