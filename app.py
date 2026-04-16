@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import os
 from datetime import datetime
+import PyPDF2
 
 st.set_page_config(page_title="AI Resume Analyzer", layout="wide")
 
@@ -16,18 +17,18 @@ DATA_FILE = "history.csv"
 if not os.path.exists(DATA_FILE):
     pd.DataFrame(columns=["Name","Score","Date"]).to_csv(DATA_FILE, index=False)
 
-# ---------------- TEXT EXTRACTION (CLEAN) ----------------
+# ---------------- PDF TEXT EXTRACTION ----------------
 def extract_text(file):
+    text = ""
     try:
-        content = file.read()
-        text = content.decode("latin-1", errors="ignore")
-
-        # remove pdf garbage like %PDF
-        text = re.sub(r"%PDF.*", "", text)
-
-        return text.lower()
+        reader = PyPDF2.PdfReader(file)
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text
     except:
-        return ""
+        pass
+    return text.lower()
 
 # ---------------- JOB DATA ----------------
 jobs = {
@@ -57,7 +58,8 @@ if page == "🏠 Analyzer":
             text = extract_text(file)
 
             # Extract details
-            name = text.split("\n")[0].strip() if text else "Candidate"
+            lines = text.split("\n")
+            name = lines[0] if lines else "Candidate"
 
             email = re.findall(r"[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+", text)
             email = email[0] if email else "Not Found"
@@ -101,7 +103,7 @@ if page == "🏠 Analyzer":
 
             st.markdown("---")
 
-            # Save history
+            # Save
             df_hist = pd.concat([
                 df_hist,
                 pd.DataFrame([[name, rating, today]], columns=["Name","Score","Date"])
@@ -109,7 +111,6 @@ if page == "🏠 Analyzer":
 
         df_hist.to_csv(DATA_FILE, index=False)
 
-        # Best candidate
         if len(results) > 1:
             best = sorted(results, key=lambda x: x[1], reverse=True)[0]
             st.success(f"🏆 Best Candidate: {best[0]}")
