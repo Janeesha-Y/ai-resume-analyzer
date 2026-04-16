@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from pypdf import PdfReader
+import PyPDF2
 import matplotlib.pyplot as plt
 import re
 import os
@@ -57,7 +57,7 @@ st.sidebar.success("👩‍💻 Developed by Janeesha Y")
 
 # ---------------- FUNCTION ----------------
 def extract_text(file):
-    reader = PdfReader(file)
+    reader = PyPDF2.PdfReader(file)
     text = ""
     for p in reader.pages:
         if p.extract_text():
